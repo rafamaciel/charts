@@ -1,0 +1,33 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/getzep
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 8000
+
+postgresql:
+  enabled: true
+  auth:
+    username: postgres
+    password: postgres
+    database: postgres
+
+externalPostgres:
+  enabled: false
+  host: ""
+  port: 5432
+  user: ""
+  password: ""
+  database: ""
+
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "1Gi"
+    cpu: "1"

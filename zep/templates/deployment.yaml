@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zep.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "zep.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "zep.name" . }}
+    spec:
+      containers:
+        - name: zep
+          image: "{{ .Values.image.repository }}/zep-cloud:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8000
+          env:
+            {{- if .Values.externalPostgres.enabled }}
+            - name: ZEP_STORE_POSTGRES_DSN
+              value: "postgres://{{ .Values.externalPostgres.user }}:{{ .Values.externalPostgres.password }}@{{ .Values.externalPostgres.host }}:{{ .Values.externalPostgres.port }}/{{ .Values.externalPostgres.database }}?sslmode=disable"
+            {{- else }}
+            - name: ZEP_STORE_POSTGRES_DSN
+              value: "postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "zep.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}?sslmode=disable"
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "zep.fullname" . }}-config
+            - configMapRef:
+                name: {{ include "zep.fullname" . }}-dotenv
+          readinessProbe:
+            httpGet:
+              port: 8000
+              path: /healthz
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zep.fullname" . }}-nlp
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "zep.name" . }}-nlp
+  template:
+    metadata:
+      labels:
+        app: {{ include "zep.name" . }}-nlp
+    spec:
+      containers:
+        - name: zep-nlp
+          image: "{{ .Values.image.repository }}/zep-nlp-server:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 5557
+          readinessProbe:
+            httpGet:
+              port: 5557
+              path: /healthz
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2"
